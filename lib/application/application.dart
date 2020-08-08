@@ -23,14 +23,22 @@ import 'package:flutter_render_world/page/page_view.dart';
 ///6.RendererBinding 整个Flutter的渲染模型，处理了测量，布局，绘制等关键内容，与SchedulerBinding配合达到渲染屏幕的目的
 ///7.Context 模块化相关的内容，包括RouterContext，StorageContext等
 
-abstract class Application extends BindingBase with GestureBinding, ServicesBinding, SchedulerBinding, PaintingBinding, SemanticsBinding, RendererBinding {
+abstract class Application extends BindingBase
+	with
+		GestureBinding,
+		SchedulerBinding,
+		ServicesBinding,
+		PaintingBinding,
+		SemanticsBinding,
+		RendererBinding {
 	Context _context;
 	static const ROOT_CONTAINER = "application_root_container";
 
 	Application() {
 		_context = Context();
 		// 初始化RouterContext
-		RouterContainer routerContainer = RouterContainer(SizeSpec.matchParent(), SizeSpec.matchParent());
+		RouterContainer routerContainer = RouterContainer(
+			SizeSpec.matchParent(), SizeSpec.matchParent());
 		routerContainer
 			..background = Colors.white
 			..id = ID(ROOT_CONTAINER)
@@ -53,27 +61,28 @@ abstract class Application extends BindingBase with GestureBinding, ServicesBind
 	List<PageRouter> get routers;
 
 	@override
-  Future<void> performReassemble() {
+	Future<void> performReassemble() {
 		///TODO 当前架构无法hot reload
-    print("hot reload will through here!");
-    return super.performReassemble();
-  }
+		print("hot reload will through here!");
+		return super.performReassemble();
+	}
 }
 
 class MyApplication extends Application {
 
 	@override
-  void onCreate() {
-    super.onCreate();
-    PageIntent intent = PageIntent();
-    intent.router = routers[0]?.path;
-    intent.routerFlag = RouterFlag.standard;
-    _context.start(intent);
-  }
+	void onCreate() {
+		super.onCreate();
+		PageIntent intent = PageIntent();
+		intent.router = routers[0]?.path;
+		intent.routerFlag = RouterFlag.standard;
+		_context.start(intent);
+	}
 
 	@override
-	List<PageRouter> get routers => [
-		PageRouter('login', () => LoginPage()),
-		PageRouter('main', () => MainPage())
-	];
+	List<PageRouter> get routers =>
+		[
+			PageRouter('login', () => LoginPage()),
+			PageRouter('main', () => MainPage())
+		];
 }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Page;
 import 'package:flutter_render_world/label/layout.dart';
 import 'package:flutter_render_world/label/layout_compat.dart';
 import 'package:flutter_render_world/label/view.dart';
