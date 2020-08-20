@@ -24,65 +24,62 @@ import 'package:flutter_render_world/page/page_view.dart';
 ///7.Context 模块化相关的内容，包括RouterContext，StorageContext等
 
 abstract class Application extends BindingBase
-	with
-		GestureBinding,
-		SchedulerBinding,
-		ServicesBinding,
-		PaintingBinding,
-		SemanticsBinding,
-		RendererBinding {
-	Context _context;
-	static const ROOT_CONTAINER = "application_root_container";
+    with
+        GestureBinding,
+        ServicesBinding,
+        SchedulerBinding,
+        PaintingBinding,
+        SemanticsBinding,
+        RendererBinding {
+  Context _context;
+  static const ROOT_CONTAINER = "application_root_container";
 
-	Application() {
-		_context = Context();
-		// 初始化RouterContext
-		RouterContainer routerContainer = RouterContainer(
-			SizeSpec.matchParent(), SizeSpec.matchParent());
-		routerContainer
-			..background = Colors.white
-			..id = ID(ROOT_CONTAINER)
-			..padding = EdgeInsets.only(top: 0);
-		renderView.child = routerContainer.renderVue;
-		_context.bindRouterContainer(routerContainer);
-		_context.configRouters(RouterConfig(10, routers));
-		onCreate();
-		scheduleFrame();
-	}
+  Application() {
+    _context = Context();
+    // 初始化RouterContext
+    RouterContainer routerContainer =
+        RouterContainer(SizeSpec.matchParent(), SizeSpec.matchParent());
+    routerContainer
+      ..background = Colors.white
+      ..id = ID(ROOT_CONTAINER)
+      ..padding = EdgeInsets.only(top: 0);
+    renderView.child = routerContainer.renderVue;
+    _context.bindRouterContainer(routerContainer);
+    _context.configRouters(RouterConfig(10, routers));
+    onCreate();
+    scheduleFrame();
+  }
 
-	void onCreate() {
-	}
+  void onCreate() {}
 
-	onDestroy() {
-		///销毁所有页面
-		_context.destroy();
-	}
+  onDestroy() {
+    ///销毁所有页面
+    _context.destroy();
+  }
 
-	List<PageRouter> get routers;
+  List<PageRouter> get routers;
 
-	@override
-	Future<void> performReassemble() {
-		///TODO 当前架构无法hot reload
-		print("hot reload will through here!");
-		return super.performReassemble();
-	}
+  @override
+  Future<void> performReassemble() {
+    ///TODO 当前架构无法hot reload
+    print("hot reload will through here!");
+    return super.performReassemble();
+  }
 }
 
 class MyApplication extends Application {
+  @override
+  void onCreate() {
+    super.onCreate();
+    PageIntent intent = PageIntent();
+    intent.router = routers[0]?.path;
+    intent.routerFlag = RouterFlag.standard;
+    _context.start(intent);
+  }
 
-	@override
-	void onCreate() {
-		super.onCreate();
-		PageIntent intent = PageIntent();
-		intent.router = routers[0]?.path;
-		intent.routerFlag = RouterFlag.standard;
-		_context.start(intent);
-	}
-
-	@override
-	List<PageRouter> get routers =>
-		[
-			PageRouter('login', () => LoginPage()),
-			PageRouter('main', () => MainPage())
-		];
+  @override
+  List<PageRouter> get routers => [
+        PageRouter('login', () => LoginPage()),
+        PageRouter('main', () => MainPage())
+      ];
 }
