@@ -19,7 +19,8 @@ class RenderRelativeLayoutParentData
 class RenderRelativeLayout
 	extends RenderVueGroup<RenderRelativeLayoutParentData> {
 	RelativeLayout relativeLayout;
-	DependencyGraph graph;
+	DependencyGraph graphHorizontal;
+	DependencyGraph graphVertical;
 
 	///水平方向的ViewRoot
 	List<View> sortedHorizontalChildren;
@@ -58,7 +59,7 @@ class RenderRelativeLayout
 		RenderRelativeLayoutParentData();
 
 	RenderRelativeLayout(this.relativeLayout)
-		: graph = DependencyGraph(),
+		: graphHorizontal = DependencyGraph(), graphVertical = DependencyGraph(),
 			super(relativeLayout);
 
 	@override
@@ -69,81 +70,43 @@ class RenderRelativeLayout
 			dirtyHierarchy = false;
 			sortChildren();
 		}
+		double widthTemp = 0.0;
+		double heightTemp = 0.0;
 		for (View view in sortedHorizontalChildren) {
-			applyHorizontalSizeRules(view, childBoxConstraints);
+			double widthChild = applyHorizontalSizeRules(view, childBoxConstraints, widthTemp);
+			widthTemp = math.max(widthChild, widthTemp);
+			widthTemp += relativeLayout.padding.horizontal;
+			widthTemp = widthTemp.clamp(constraints.minWidth, constraints.maxWidth);
 		}
 		for (View view in sortedVerticalChildren) {
-      applyVerticalSizeRules(view, childBoxConstraints);
+      double heightChild = applyVerticalSizeRules(view, childBoxConstraints);
+      heightTemp = math.max(heightChild, heightTemp);
+      heightTemp += relativeLayout.padding.vertical;
+      heightTemp = heightTemp.clamp(constraints.minHeight, constraints.maxHeight);
     }
-    ///遍历过上面的循环，所有的View的位置都可以确定了
-    double widthTemp = 0.0;
-    double heightTemp = 0.0;
-    RenderVue child = firstChild;
-		while(child != null) {
-		  RenderRelativeLayoutParentData data = child.parentData;
-		  double minWidth;
-		  double maxWidth;
-      double minHeight;
-      double maxHeight;
-		  if (data.left >= 0 && data.right >= 0) {
-        minWidth = maxWidth = data.right - data.left;
-      } else if (data.left < 0 && data.right < 0) {
-        minWidth = childBoxConstraints.minWidth;
-        maxWidth = childBoxConstraints.maxWidth;
-      } else if (data.left < 0) {
-        minWidth = 0;
-        maxWidth = data.right;
-      } else {
-        minWidth = 0;
-        maxWidth = childBoxConstraints.maxWidth - data.left;
-      }
 
-      if (data.top >= 0 && data.bottom >= 0) {
-        minHeight = maxHeight = data.bottom - data.top;
-      } else if (data.top < 0 && data.bottom < 0) {
-        minHeight = childBoxConstraints.minHeight;
-        maxHeight = childBoxConstraints.maxHeight;
-      } else if (data.top < 0) {
-        minHeight = 0;
-        maxHeight = data.bottom;
-      } else {
-        minHeight = 0;
-        maxHeight = childBoxConstraints.maxHeight - data.top;
-      }
-      BoxConstraints constraints = BoxConstraints(minWidth: minWidth, maxWidth: maxWidth, minHeight: minHeight, maxHeight: maxHeight);
-      child.layout(constraints, parentUsesSize: true);
-      Size childSize = child.size;
-
-      Offset offset = Offset.zero;
-      if (data.left >= 0) {
-        offset += Offset(data.left, 0);
-      } else if (data.right >= 0) {
-        offset += Offset(data.right - childSize.width, 0);
-      }
-      if (data.top >= 0) {
-        offset += Offset(0, data.top);
-      } else if (data.bottom >= 0) {
-        offset += Offset(0, data.bottom - childSize.height);
-      }
-      data.offset = offset;
-      widthTemp = math.max(widthTemp, childSize.width);
-      heightTemp = math.max(heightTemp, childSize.height);
-		  child = data.nextSibling;
-    }
+		if (!parentUsesChildWidth) {
+			widthTemp = width;
+		}
+		if (!parentUsesChildHeight) {
+			heightTemp = height;
+		}
 		return Size(widthTemp, heightTemp);
 	}
 
 	/// 排列子view，找出依赖树
 	void sortChildren() {
-		graph.clear();
+		graphHorizontal.clear();
+		graphVertical.clear();
 		for (View view in relativeLayout.children) {
-			graph.add(view);
+			graphHorizontal.add(view);
+			graphVertical.add(view);
 		}
-		sortedVerticalChildren = graph.getSortedViews(rulesVertical);
-		sortedHorizontalChildren = graph.getSortedViews(rulesHorizontal);
+		sortedVerticalChildren = graphVertical.getSortedViews(rulesVertical);
+		sortedHorizontalChildren = graphHorizontal.getSortedViews(rulesHorizontal);
 	}
 
-	void applyHorizontalSizeRules(View view, BoxConstraints constraints) {
+	double applyHorizontalSizeRules(View view, BoxConstraints constraints, double widthTemp) {
 		RelativeLayoutParams lp = view.layoutParams;
 		List<RelativeRule> rules = lp.rules;
 		RenderVue child = view.renderVue;
@@ -154,42 +117,73 @@ class RenderRelativeLayout
 		  if (rule.isVertical) {
 		    continue;
       }
-      View anchorView = getRelatedView(view, rule);
+      View anchorView = getRelatedView(graphHorizontal, view, rule);
       if (anchorView == null) {
-      	///TODO 没有依赖任何View，需要计算起left与right
 	      if (rule.ruleType == RelativeRuleType.alignParentLeft) {
 	      	left = view.margin.left;
 	      } else if (rule.ruleType == RelativeRuleType.alignParentRight) {
 	      	right = constraints.maxWidth - view.margin.right;
 	      } else if (rule.ruleType == RelativeRuleType.centerHorizontal
 		      || rule.ruleType == RelativeRuleType.centerParent) {
-
+					///TODO 记录起来，结尾需要特殊处理
 	      }
-        continue;
-      }
-      RenderVue anchorVue = anchorView.renderVue;
-      RenderRelativeLayoutParentData anchorData = anchorVue.parentData;
-      ///TODO 此时的anchorVue还没有
-      if(rule.ruleType == RelativeRuleType.toLeftOf) {
-        right = anchorData.left - anchorView.margin.left - view.margin.right;
-      } else if (rule.ruleType == RelativeRuleType.toRightOf) {
-        left = anchorData.right + anchorView.margin.right + view.margin.left;
-      } else if (rule.ruleType == RelativeRuleType.alignLeft) {
-        left = anchorData.left;
-      } else if (rule.ruleType == RelativeRuleType.alignRight) {
-        right = anchorData.right;
+      } else {
+	      RenderVue anchorVue = anchorView.renderVue;
+	      RenderRelativeLayoutParentData anchorData = anchorVue.parentData;
+	      if(rule.ruleType == RelativeRuleType.toLeftOf) {
+		      right = anchorData.left - anchorView.margin.left - view.margin.right;
+	      } else if (rule.ruleType == RelativeRuleType.toRightOf) {
+		      left = anchorData.right + anchorView.margin.right + view.margin.left;
+	      } else if (rule.ruleType == RelativeRuleType.alignLeft) {
+		      left = anchorData.left;
+	      } else if (rule.ruleType == RelativeRuleType.alignRight) {
+		      right = anchorData.right;
+	      }
       }
     }
 		if (left == -1 && right == -1) {
 			left = view.margin.left;
+			double minWidth = 0;
+			double maxWidth = constraints.maxWidth - left - view.margin.right;
+			BoxConstraints childConstraints = BoxConstraints(
+				minWidth: math.max(0, minWidth),
+				maxWidth: math.max(0, maxWidth).clamp(0, constraints.maxWidth),
+				minHeight: constraints.minHeight, maxHeight: constraints.maxHeight
+			);
+			child.layout(childConstraints, parentUsesSize: true);
+			Size size = child.size;
+			right = left + size.width;
+		} else if (right == -1 && left >= 0) {
+			double minWidth = 0;
+			double maxWidth = constraints.maxWidth - left - view.margin.right;
+			BoxConstraints childConstraints = BoxConstraints(
+				minWidth: math.max(0, minWidth),
+				maxWidth: math.max(0, maxWidth).clamp(0, constraints.maxWidth),
+				minHeight: constraints.minHeight, maxHeight: constraints.maxHeight
+			);
+			child.layout(childConstraints, parentUsesSize: true);
+			Size size = child.size;
+			right = left + size.width;
+		} else if (left == -1 && right >= 0) {
+			double minWidth = 0;
+			double maxWidth = math.min(right, constraints.maxWidth);
+			BoxConstraints childConstraints = BoxConstraints(
+				minWidth: math.max(0, minWidth),
+				maxWidth: math.max(0, maxWidth).clamp(0, constraints.maxWidth),
+				minHeight: constraints.minHeight, maxHeight: constraints.maxHeight
+			);
+			child.layout(childConstraints, parentUsesSize: true);
+			Size size = child.size;
+			left = right - size.width;
 		}
 		///遍历完改View的所有限制条件，这个View的水平大小以及位置就可以定位了
     data.left = left;
     data.right = right;
     child.parentData = data;
+    return right + view.margin.right;
 	}
 
-	void applyVerticalSizeRules(View view, BoxConstraints constraints) {
+	double applyVerticalSizeRules(View view, BoxConstraints constraints) {
     RelativeLayoutParams lp = view.layoutParams;
     List<RelativeRule> rules = lp.rules;
     RenderVue child = view.renderVue;
@@ -200,28 +194,78 @@ class RenderRelativeLayout
       if (rule.isHorizontal) {
         continue;
       }
-      View anchorView = getRelatedView(view, rule);
+      View anchorView = getRelatedView(graphVertical, view, rule);
       if (anchorView == null) {
-        continue;
-      }
-      RenderVue anchorVue = anchorView.renderVue;
-      RenderRelativeLayoutParentData anchorData = anchorVue.parentData;
-      if(rule.ruleType == RelativeRuleType.toAboveOf) {
-        top = anchorData.top - anchorView.margin.top - view.margin.bottom;
-      } else if (rule.ruleType == RelativeRuleType.toBelowOf) {
-        top = anchorData.bottom + anchorView.margin.bottom + view.margin.top;
-      } else if (rule.ruleType == RelativeRuleType.alignTop) {
-        top = anchorData.top;
-      } else if (rule.ruleType == RelativeRuleType.alignBottom) {
-        bottom = anchorData.bottom;
+	      if (rule.ruleType == RelativeRuleType.alignParentTop) {
+		      top = view.margin.top;
+	      } else if (rule.ruleType == RelativeRuleType.alignParentBottom) {
+		      bottom = constraints.maxHeight - view.margin.bottom;
+	      } else if (rule.ruleType == RelativeRuleType.centerHorizontal
+		      || rule.ruleType == RelativeRuleType.centerParent) {
+		      ///TODO 记录起来，结尾需要特殊处理
+	      }
+      } else {
+	      RenderVue anchorVue = anchorView.renderVue;
+	      RenderRelativeLayoutParentData anchorData = anchorVue.parentData;
+	      if(rule.ruleType == RelativeRuleType.toAboveOf) {
+		      bottom = anchorData.top - anchorView.margin.top - view.margin.bottom;
+	      } else if (rule.ruleType == RelativeRuleType.toBelowOf) {
+		      top = anchorData.bottom + anchorView.margin.bottom + view.margin.top;
+	      } else if (rule.ruleType == RelativeRuleType.alignTop) {
+		      top = anchorData.top;
+	      } else if (rule.ruleType == RelativeRuleType.alignBottom) {
+		      bottom = anchorData.bottom;
+	      }
       }
     }
+
+    double width = data.right - data.left;
+
+    if (top == -1 && bottom == -1) {
+	    top = view.margin.top;
+	    double minHeight = 0;
+	    double maxHeight = constraints.maxHeight - top - view.margin.bottom;
+	    BoxConstraints childConstraints = BoxConstraints(
+		    minWidth: width,
+		    maxWidth: width,
+		    minHeight: minHeight, maxHeight: maxHeight
+	    );
+	    child.layout(childConstraints, parentUsesSize: true);
+	    Size size = child.size;
+	    bottom = top + size.height;
+    } else if (bottom == -1 && top >= 0) {
+	    double minHeight = 0;
+	    double maxHeight = constraints.maxHeight - top - view.margin.bottom;
+	    BoxConstraints childConstraints = BoxConstraints(
+		    minWidth: width,
+		    maxWidth: width,
+		    minHeight: minHeight, maxHeight: maxHeight
+	    );
+	    child.layout(childConstraints, parentUsesSize: true);
+	    Size size = child.size;
+	    bottom = top + size.height;
+    } else if (top == -1 && bottom >= 0) {
+	    double minHeight = 0;
+	    double maxHeight = math.min(bottom, constraints.maxHeight);
+	    BoxConstraints childConstraints = BoxConstraints(
+		    minWidth: width,
+		    maxWidth: width,
+		    minHeight: minHeight, maxHeight: maxHeight
+	    );
+	    child.layout(childConstraints, parentUsesSize: true);
+	    Size size = child.size;
+	    top = bottom - size.height;
+    }
+
+    ///遍历完改View的所有限制条件，这个View的水平大小以及位置就可以定位了
     data.top = top;
     data.bottom = bottom;
+    data.offset = Offset(data.left, data.top);
     child.parentData = data;
+    return bottom + view.margin.bottom;
   }
 
-	View getRelatedView(View view, RelativeRule rule) {
+	View getRelatedView(DependencyGraph graph, View view, RelativeRule rule) {
 		ID id = rule.id;
 		if (id != ID.NO_ID) {
 			Node node = graph.keyNodes.get(id);
@@ -275,7 +319,7 @@ class DependencyGraph {
 
 	List<View> getSortedViews(List<RelativeRuleType> typeFilters) {
 		List<View> sorted = List();
-		List<Node> roots = findRoots(typeFilters);
+		List<Node> roots = findRoots(this.nodes, this.keyNodes, typeFilters);
 
 		int index = 0;
 		Node node;
@@ -299,11 +343,6 @@ class DependencyGraph {
 					roots.add(dependent);
 				}
 			}
-			/*if (roots.length > 0) {
-				node = roots[roots.length - 1];
-			} else {
-				node = null;
-			}*/
 			if (index < sorted.length) {
 				throw new Exception(
 					"Circular dependencies cannot exist in RelativeLayout");
@@ -312,9 +351,7 @@ class DependencyGraph {
 		return sorted;
 	}
 
-	List<Node> findRoots(List<RelativeRuleType> typeFilters) {
-		SparseArray<ID, Node> keyNodes = this.keyNodes;
-		List<Node> nodes = this.nodes;
+	List<Node> findRoots(List<Node> nodes, SparseArray<ID, Node> keyNodes, List<RelativeRuleType> typeFilters) {
 		for (Node node in nodes) {
 			if (!(node.view.layoutParams is RelativeLayoutParams)) {
 				continue;

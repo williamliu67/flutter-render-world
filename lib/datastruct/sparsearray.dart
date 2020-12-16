@@ -15,6 +15,19 @@ class SparseArray<T extends SparseKey, E>{
   E deleted;
   bool _garbage = false;
 
+  static SparseArray<T, E> copy<T extends SparseKey, E>(SparseArray source) {
+    SparseArray<T, E> sparseArray = SparseArray<T, E>(source.deleted);
+    int count = source.size;
+    List<T> keys = List(source.keys.length);
+    List.copyRange(keys, 0, source.keys);
+    List<E> values = List(source.values.length);
+    List.copyRange(values, 0, source.values);
+    sparseArray.keys = keys;
+    sparseArray.values = values;
+    sparseArray._size = source.size;
+    return sparseArray;
+  }
+
   SparseArray(this.deleted): keys = List(), values = List(), _size = 0;
 
   E get(T key) => getWithDefault(key, null);

@@ -15,7 +15,7 @@ class RenderTextView extends RenderVue{
 
   updateContent(){
     _paragraph.text = TextSpan(text: textView.message, style: textView.style);
-    markNeedsPaint();
+    markNeedsLayout();
   }
 
   @override

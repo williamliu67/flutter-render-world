@@ -104,19 +104,19 @@ class RelativeRule{
 
   RelativeRule.alignBottom(this.id): ruleType = RelativeRuleType.alignBottom;
 
-  RelativeRule.alignParentLeft(): ruleType = RelativeRuleType.alignParentLeft;
+  RelativeRule.alignParentLeft(): id = ID.NO_ID, ruleType = RelativeRuleType.alignParentLeft;
 
-  RelativeRule.alignParentRight(this.id): ruleType = RelativeRuleType.alignParentRight;
+  RelativeRule.alignParentRight(): id = ID.NO_ID, ruleType = RelativeRuleType.alignParentRight;
 
-  RelativeRule.alignParentTop(this.id): ruleType = RelativeRuleType.alignParentTop;
+  RelativeRule.alignParentTop(): id = ID.NO_ID, ruleType = RelativeRuleType.alignParentTop;
 
-  RelativeRule.alignParentBottom(this.id): ruleType = RelativeRuleType.alignParentBottom;
+  RelativeRule.alignParentBottom(): id = ID.NO_ID, ruleType = RelativeRuleType.alignParentBottom;
 
-  RelativeRule.centerParent(): ruleType = RelativeRuleType.centerParent;
+  RelativeRule.centerParent(): id = ID.NO_ID, ruleType = RelativeRuleType.centerParent;
 
-  RelativeRule.centerVertical(): ruleType = RelativeRuleType.centerVertical;
+  RelativeRule.centerVertical(): id = ID.NO_ID, ruleType = RelativeRuleType.centerVertical;
 
-  RelativeRule.centerHorizontal(): ruleType = RelativeRuleType.centerHorizontal;
+  RelativeRule.centerHorizontal(): id = ID.NO_ID, ruleType = RelativeRuleType.centerHorizontal;
 
   bool get isHorizontal => ruleType == RelativeRuleType.toRightOf
     || ruleType == RelativeRuleType.toLeftOf
